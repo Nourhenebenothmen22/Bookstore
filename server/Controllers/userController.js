@@ -66,7 +66,7 @@ module.exports = {
   },
 
 
-  loginUser: async (req, res) => {
+ loginUser: async (req, res) => {
   try {
     const { email, password } = req.body;
 
@@ -93,15 +93,30 @@ module.exports = {
       return res.status(401).json({ message: "Invalid password" });
     }
 
-    // If authentication is successful, return 200 OK
-    return res.status(200).json({ message: "Login successful" });
+    // Generate JWT token
+    const token = jwt.sign(
+      { id: existingUser._id, email: existingUser.email, role: existingUser.role },
+      process.env.SECRET_KEY,
+      { expiresIn: "7d" } // Token expires in 7 days
+    );
+
+    // If authentication is successful, return 200 OK with token
+    return res.status(200).json({
+      message: "Login successful",
+      user: {
+        id: existingUser._id,
+        name: existingUser.name,
+        email: existingUser.email,
+        role: existingUser.role,
+      },
+      token, // Include JWT token in response
+    });
 
   } catch (error) {
     // Handle unexpected errors
     console.error(error);
     return res.status(500).json({ message: "Server error", error: error.message });
   }
-}
-
+},
 
 }
