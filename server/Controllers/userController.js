@@ -118,5 +118,30 @@ module.exports = {
     return res.status(500).json({ message: "Server error", error: error.message });
   }
 },
+fetchUserDetails: async (req, res) => {
+  const id = req.params.id; // Get user ID from route parameters
 
+  try {
+    // Find user by ID
+    const user = await User.findById(id);
+
+    // If user not found, return 404
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Return user details (excluding password)
+    return res.status(200).json({
+      id: user._id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+    });
+
+  } catch (error) {
+    // Handle unexpected errors
+    console.error(error);
+    return res.status(500).json({ message: "Server error", error: error.message });
+  }
+}
 }
