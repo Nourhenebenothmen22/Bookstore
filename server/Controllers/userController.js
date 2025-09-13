@@ -3,12 +3,15 @@ const bcrypt = require("bcrypt"); // For password hashing
 
 module.exports = {
   createUserAccount: async (req, res) => {
-    const { email, password } = req.body;
+    const { email, password,name,role} = req.body;
 
     // Check if email and password are provided
-    return res.status(400).json({
-      message: "Email and password are required.",
-    });
+    if (!email || !password || !name || !role) {
+  return res.status(400).json({
+    message: "Name, email, password and role are required."
+  });
+}
+
 
     // Check if user already exists
     const existingUser = await User.findOne({ email });
@@ -23,9 +26,12 @@ module.exports = {
 
     // Create new user instance
     const newUser = new User({
-      email,
-      password: hashedPassword,
-    });
+  name,
+  email,
+  password: hashedPassword,
+  role
+});
+
 
     // Save user to database
     await newUser.save();
@@ -36,6 +42,7 @@ module.exports = {
       user: {
         id: newUser._id,
         email: newUser.email,
+        role:newUser.role
       },
     });
   },
