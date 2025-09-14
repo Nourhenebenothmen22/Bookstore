@@ -13,5 +13,6 @@ router.get('/:id', categoryController.getCategoryDetails);
 
 // Update a category by ID
 router.put('/:id', categoryController.editCategory);
+router.delete('/:id',categoryController.deleteCategory)
 
 module.exports = router;
