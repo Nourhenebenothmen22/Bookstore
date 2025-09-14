@@ -47,7 +47,7 @@ module.exports = {
    */
   fetchBooks: async (req, res) => {
     try {
-      const books = await Book.find().populate("category", "name description");
+      const books = await Book.find().populate("category", "name ");
       return res.status(200).json({ success: true, data: books });
     } catch (error) {
       console.error(error);
@@ -61,7 +61,7 @@ module.exports = {
   fetchBookDetails: async (req, res) => {
     const id = req.params.id;
     try {
-      const book = await Book.findById(id).populate("category", "name description");
+      const book = await Book.findById(id).populate("category", "name ");
       if (!book) {
         return res.status(404).json({ message: "Book not found" });
       }
@@ -78,7 +78,7 @@ module.exports = {
   editBook: async (req, res) => {
     const id = req.params.id;
     try {
-      const updatedBook = await Book.findByIdAndUpdate(id, req.body, { new: true, runValidators: true });
+      const updatedBook = await Book.findByIdAndUpdate(id, req.body, { new: true, runValidators: true }).populate("category","name");
       if (!updatedBook) {
         return res.status(404).json({ message: "Book not found" });
       }
