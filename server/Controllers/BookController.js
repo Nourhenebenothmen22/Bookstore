@@ -1,4 +1,5 @@
 const Book = require('../models/Book');
+const Category = require('../models/Category');
 
 module.exports = {
   /**
@@ -8,7 +9,6 @@ module.exports = {
     try {
       const { title, author, description, price, stock, isFeatured, isOnSale, discountPercent, coverImage, category } = req.body;
 
-      // Validation basique
       if (!title || !author || !price || !stock) {
         return res.status(400).json({ message: "Title, author, price, and stock are required." });
       }
@@ -27,6 +27,14 @@ module.exports = {
       });
 
       const savedBook = await newBook.save();
+
+      // 🔥 Push the book into the category's books array
+      if (category) {
+        await Category.findByIdAndUpdate(category, {
+          $push: {books: savedBook._id }
+        });
+      }
+
       return res.status(201).json({ message: "Book published successfully", data: savedBook });
     } catch (error) {
       console.error(error);
@@ -91,7 +99,16 @@ module.exports = {
       if (!existBook) {
         return res.status(404).json({ message: "Book not found" });
       }
+
       await Book.findByIdAndDelete(id);
+
+      // 🔥 Pull the book from the category's books array
+      if (existBook.category) {
+        await Category.findByIdAndUpdate(existBook.category, {
+          $pull: { books: existBook._id }
+        });
+      }
+
       return res.status(200).json({ message: "Book removed successfully" });
     } catch (error) {
       console.error(error);
