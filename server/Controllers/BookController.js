@@ -1,16 +1,32 @@
 const Book = require('../models/Book');
 const Category = require('../models/Category');
 
+
 module.exports = {
   /**
    * Publish (create) a new book
    */
   publishBook: async (req, res) => {
     try {
-      const { title, author, description, price, stock, isFeatured, isOnSale, discountPercent, coverImage, category } = req.body;
+      if (req.file){
+    req.body.coverImage=req.file.filename
+   }
+      const { title, author, description, price, stock, isFeatured, isOnSale, discountPercent, category } = req.body;
 
-      if (!title || !author || !price || !stock) {
-        return res.status(400).json({ message: "Title, author, price, and stock are required." });
+      if (!title || !author || !price || !stock || !category) {
+        return res.status(400).json({ 
+          success: false,
+          message: "Title, author, price, stock, and category are required." 
+        });
+      }
+
+      // Check if category exists
+      const existingCategory = await Category.findById(category);
+      if (!existingCategory) {
+        return res.status(400).json({ 
+          success: false,
+          message: "Specified category does not exist." 
+        });
       }
 
       const newBook = new Book({
@@ -22,23 +38,27 @@ module.exports = {
         isFeatured,
         isOnSale,
         discountPercent,
-        coverImage,
+        coverImage: req.file ? req.file.filename : null,
         category
       });
 
       const savedBook = await newBook.save();
 
-      // 🔥 Push the book into the category's books array
-      if (category) {
-        await Category.findByIdAndUpdate(category, {
-          $push: {books: savedBook._id }
-        });
-      }
+      // Push the book to the category's books array
+      await Category.findByIdAndUpdate(category, { $push: { books: savedBook._id } });
 
-      return res.status(201).json({ message: "Book published successfully", data: savedBook });
+      return res.status(201).json({ 
+        success: true,
+        message: "Book published successfully", 
+        data: savedBook 
+      });
     } catch (error) {
-      console.error(error);
-      return res.status(500).json({ message: "Server error", error: error.message });
+      console.error("Error publishing book:", error);
+      return res.status(500).json({ 
+        success: false,
+        message: "Server error", 
+        error: error.message 
+      });
     }
   },
 
@@ -47,11 +67,11 @@ module.exports = {
    */
   fetchBooks: async (req, res) => {
     try {
-      const books = await Book.find().populate("category", "name ");
+      const books = await Book.find().populate("category", "name");
       return res.status(200).json({ success: true, data: books });
     } catch (error) {
-      console.error(error);
-      return res.status(500).json({ message: "Server error", error: error.message });
+      console.error("Error fetching books:", error);
+      return res.status(500).json({ success: false, message: "Server error", error: error.message });
     }
   },
 
@@ -61,14 +81,12 @@ module.exports = {
   fetchBookDetails: async (req, res) => {
     const id = req.params.id;
     try {
-      const book = await Book.findById(id).populate("category", "name ");
-      if (!book) {
-        return res.status(404).json({ message: "Book not found" });
-      }
+      const book = await Book.findById(id).populate("category", "name");
+      if (!book) return res.status(404).json({ success: false, message: "Book not found" });
       return res.status(200).json({ success: true, data: book });
     } catch (error) {
-      console.error(error);
-      return res.status(500).json({ message: "Server error", error: error.message });
+      console.error("Error fetching book details:", error);
+      return res.status(500).json({ success: false, message: "Server error", error: error.message });
     }
   },
 
@@ -76,16 +94,28 @@ module.exports = {
    * Edit (update) book by ID
    */
   editBook: async (req, res) => {
-    const id = req.params.id;
+   
     try {
-      const updatedBook = await Book.findByIdAndUpdate(id, req.body, { new: true, runValidators: true }).populate("category","name");
-      if (!updatedBook) {
-        return res.status(404).json({ message: "Book not found" });
+       if(req.file)
+            {req.body.coverImage=req.file.filename};
+    const id = req.params.id;
+      const existingBook = await Book.findById(id);
+      if (!existingBook) return res.status(404).json({ success: false, message: "Book not found" });
+
+      const updateData = { ...req.body };
+
+      // Handle category change
+      if (req.body.category && req.body.category !== existingBook.category.toString()) {
+        await Category.findByIdAndUpdate(existingBook.category, { $pull: { books: existingBook._id } });
+        await Category.findByIdAndUpdate(req.body.category, { $push: { books: existingBook._id } });
       }
-      return res.status(200).json({ message: "Book updated successfully", data: updatedBook });
+
+      const updatedBook = await Book.findByIdAndUpdate(id, updateData, { new: true, runValidators: true }).populate("category", "name");
+
+      return res.status(200).json({ success: true, message: "Book updated successfully", data: updatedBook });
     } catch (error) {
-      console.error(error);
-      return res.status(500).json({ message: "Server error", error: error.message });
+      console.error("Error updating book:", error);
+      return res.status(500).json({ success: false, message: "Server error", error: error.message });
     }
   },
 
@@ -96,23 +126,32 @@ module.exports = {
     const id = req.params.id;
     try {
       const existBook = await Book.findById(id);
-      if (!existBook) {
-        return res.status(404).json({ message: "Book not found" });
-      }
+      if (!existBook) return res.status(404).json({ success: false, message: "Book not found" });
 
       await Book.findByIdAndDelete(id);
 
-      // 🔥 Pull the book from the category's books array
+      // Remove book from category's books array
       if (existBook.category) {
-        await Category.findByIdAndUpdate(existBook.category, {
-          $pull: { books: existBook._id }
-        });
+        await Category.findByIdAndUpdate(existBook.category, { $pull: { books: existBook._id } });
       }
 
-      return res.status(200).json({ message: "Book removed successfully" });
+      return res.status(200).json({ success: true, message: "Book removed successfully" });
     } catch (error) {
-      console.error(error);
-      return res.status(500).json({ message: "Server error", error: error.message });
+      console.error("Error removing book:", error);
+      return res.status(500).json({ success: false, message: "Server error", error: error.message });
+    }
+  },
+
+  /**
+   * Get books on sale
+   */
+  getBooksOnSale: async (req, res) => {
+    try {
+      const books = await Book.find({ isOnSale: true }).populate("category", "name");
+      return res.status(200).json({ success: true, data: books });
+    } catch (error) {
+      console.error("Error fetching books on sale:", error);
+      return res.status(500).json({ success: false, message: "Server error", error: error.message });
     }
   }
 };

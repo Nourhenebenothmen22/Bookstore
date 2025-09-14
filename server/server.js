@@ -5,6 +5,7 @@ const cors = require('cors');              // Middleware to handle Cross-Origin 
 const connectDB = require('./config/db');  // Function to connect to MongoDB
 const morgan = require('morgan');     // HTTP request logger
 const helmet = require('helmet');     // Security middleware
+const path=require('path')
 
 // Connect to MongoDB
 connectDB(); // Calls the database connection function
@@ -17,6 +18,7 @@ app.use(express.json()); // Allows Express to parse JSON request bodies
 app.use(cors());         // Enables CORS to allow cross-domain requests
 app.use(helmet());                  // Adds security headers
 app.use(morgan('dev'));             // Logs HTTP requests in the console
+app.use('/images', express.static(path.join(__dirname, 'Storage')));
 
 // Routes
 const userRoutes = require('./Routes/User');         // User-related routes
