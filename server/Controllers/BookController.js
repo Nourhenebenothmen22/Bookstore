@@ -1,35 +1,37 @@
 const Book = require('../models/Book');
 const Category = require('../models/Category');
 
-
 module.exports = {
   /**
-   * Publish (create) a new book
+   * @desc    Publish (create) a new book
+   * @route   POST /books
+   * @access  Admin
    */
   publishBook: async (req, res) => {
     try {
-      if (req.file){
-    req.body.coverImage=req.file.filename
-   }
+      if (req.file) req.body.coverImage = req.file.filename;
+
       const { title, author, description, price, stock, isFeatured, isOnSale, discountPercent, category } = req.body;
 
+      // Validate required fields
       if (!title || !author || !price || !stock || !category) {
-        return res.status(400).json({ 
+        return res.status(400).json({
           success: false,
-          message: "Title, author, price, stock, and category are required." 
+          message: "Title, author, price, stock, and category are required."
         });
       }
 
-      // Check if category exists
+      // Validate category existence
       const existingCategory = await Category.findById(category);
       if (!existingCategory) {
-        return res.status(400).json({ 
+        return res.status(400).json({
           success: false,
-          message: "Specified category does not exist." 
+          message: "Specified category does not exist."
         });
       }
 
-      const newBook = new Book({
+      // Create new book
+      const newBook = await Book.create({
         title,
         author,
         description,
@@ -38,32 +40,32 @@ module.exports = {
         isFeatured,
         isOnSale,
         discountPercent,
-        coverImage: req.file ? req.file.filename : null,
+        coverImage: req.body.coverImage || null,
         category
       });
 
-      const savedBook = await newBook.save();
+      // Link book to category
+      await Category.findByIdAndUpdate(category, { $push: { books: newBook._id } });
 
-      // Push the book to the category's books array
-      await Category.findByIdAndUpdate(category, { $push: { books: savedBook._id } });
-
-      return res.status(201).json({ 
+      return res.status(201).json({
         success: true,
-        message: "Book published successfully", 
-        data: savedBook 
+        message: "Book published successfully",
+        data: newBook
       });
     } catch (error) {
       console.error("Error publishing book:", error);
-      return res.status(500).json({ 
+      return res.status(500).json({
         success: false,
-        message: "Server error", 
-        error: error.message 
+        message: "Server error",
+        error: error.message
       });
     }
   },
 
   /**
-   * Fetch all books
+   * @desc    Fetch all books
+   * @route   GET /books
+   * @access  Public
    */
   fetchBooks: async (req, res) => {
     try {
@@ -76,13 +78,16 @@ module.exports = {
   },
 
   /**
-   * Fetch book details by ID
+   * @desc    Fetch book details by ID
+   * @route   GET /books/:id
+   * @access  Public
    */
   fetchBookDetails: async (req, res) => {
-    const id = req.params.id;
     try {
-      const book = await Book.findById(id).populate("category", "name");
-      if (!book) return res.status(404).json({ success: false, message: "Book not found" });
+      const book = await Book.findById(req.params.id).populate("category", "name");
+      if (!book) {
+        return res.status(404).json({ success: false, message: "Book not found" });
+      }
       return res.status(200).json({ success: true, data: book });
     } catch (error) {
       console.error("Error fetching book details:", error);
@@ -91,18 +96,19 @@ module.exports = {
   },
 
   /**
-   * Edit (update) book by ID
+   * @desc    Edit (update) book by ID
+   * @route   PUT /books/:id
+   * @access  Admin
    */
   editBook: async (req, res) => {
-   
     try {
-       if(req.file)
-            {req.body.coverImage=req.file.filename};
-    const id = req.params.id;
-      const existingBook = await Book.findById(id);
-      if (!existingBook) return res.status(404).json({ success: false, message: "Book not found" });
+      if (req.file) req.body.coverImage = req.file.filename;
 
-      const updateData = { ...req.body };
+      const id = req.params.id;
+      const existingBook = await Book.findById(id);
+      if (!existingBook) {
+        return res.status(404).json({ success: false, message: "Book not found" });
+      }
 
       // Handle category change
       if (req.body.category && req.body.category !== existingBook.category.toString()) {
@@ -110,9 +116,16 @@ module.exports = {
         await Category.findByIdAndUpdate(req.body.category, { $push: { books: existingBook._id } });
       }
 
-      const updatedBook = await Book.findByIdAndUpdate(id, updateData, { new: true, runValidators: true }).populate("category", "name");
+      const updatedBook = await Book.findByIdAndUpdate(id, req.body, {
+        new: true,
+        runValidators: true
+      }).populate("category", "name");
 
-      return res.status(200).json({ success: true, message: "Book updated successfully", data: updatedBook });
+      return res.status(200).json({
+        success: true,
+        message: "Book updated successfully",
+        data: updatedBook
+      });
     } catch (error) {
       console.error("Error updating book:", error);
       return res.status(500).json({ success: false, message: "Server error", error: error.message });
@@ -120,17 +133,20 @@ module.exports = {
   },
 
   /**
-   * Remove book by ID
+   * @desc    Remove book by ID
+   * @route   DELETE /books/:id
+   * @access  Admin
    */
   removeBook: async (req, res) => {
-    const id = req.params.id;
     try {
-      const existBook = await Book.findById(id);
-      if (!existBook) return res.status(404).json({ success: false, message: "Book not found" });
+      const existBook = await Book.findById(req.params.id);
+      if (!existBook) {
+        return res.status(404).json({ success: false, message: "Book not found" });
+      }
 
-      await Book.findByIdAndDelete(id);
+      await Book.findByIdAndDelete(req.params.id);
 
-      // Remove book from category's books array
+      // Remove book from category reference
       if (existBook.category) {
         await Category.findByIdAndUpdate(existBook.category, { $pull: { books: existBook._id } });
       }
@@ -143,7 +159,9 @@ module.exports = {
   },
 
   /**
-   * Get books on sale
+   * @desc    Get all books currently on sale
+   * @route   GET /books/sale
+   * @access  Public
    */
   getBooksOnSale: async (req, res) => {
     try {
