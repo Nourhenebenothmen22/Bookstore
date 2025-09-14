@@ -2,17 +2,44 @@ const express = require('express');
 const router = express.Router();
 const categoryController = require('../Controllers/CategoryController');
 
-// Create a new category
+/**
+ * @route   POST /categories
+ * @desc    Create a new category
+ * @access  Public/Admin
+ * @body    { name: String }
+ */
 router.post('/', categoryController.addNewCategory);
 
-// Get all categories
+/**
+ * @route   GET /categories
+ * @desc    Retrieve all categories
+ * @access  Public
+ */
 router.get('/', categoryController.fetchCategories);
 
-// Get a single category by ID
+/**
+ * @route   GET /categories/:id
+ * @desc    Retrieve a single category by its ID
+ * @access  Public
+ * @params  id - Category ID
+ */
 router.get('/:id', categoryController.getCategoryDetails);
 
-// Update a category by ID
+/**
+ * @route   PUT /categories/:id
+ * @desc    Update a category by its ID
+ * @access  Admin
+ * @body    { name: String }
+ * @params  id - Category ID
+ */
 router.put('/:id', categoryController.editCategory);
-router.delete('/:id',categoryController.deleteCategory)
+
+/**
+ * @route   DELETE /categories/:id
+ * @desc    Delete a category by its ID
+ * @access  Admin
+ * @params  id - Category ID
+ */
+router.delete('/:id', categoryController.deleteCategory);
 
 module.exports = router;
